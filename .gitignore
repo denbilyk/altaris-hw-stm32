@@ -1,0 +1,12 @@
+**/.classpath
+**/.cproject
+.project
+.settings
+.git*
+!.gitignore
+!.gitattributes
+spec.d
+Release
+Debug
+bin/
+.idea/
