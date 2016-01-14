@@ -49,7 +49,7 @@
 #define UART_IRQ		  USART5_IRQn
 #endif
 
-#define RX_BUFF_SIZE 10
+#define RX_BUFF_SIZE 255
 
 class UART: public Print {
 protected:

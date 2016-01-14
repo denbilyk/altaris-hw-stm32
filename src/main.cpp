@@ -3,9 +3,8 @@
 #include "diag/Trace.h"
 #include "stm32f10x.h"
 #include "uart.h"
+#include "WString.h"
 
-// Sample pragmas to cope with warnings. Please note the related line at
-// the end of this function, used to pop the compiler diagnostics status.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wmissing-declarations"
@@ -38,7 +37,9 @@ int main() {
 	while (1) {
 		toggleLed();
 		if (uart.available()) {
-			uart.println(uart.readString());
+			String s = String(uart.readString());
+			trace_printf("ReadString: %s", s.c_str());
+			uart.println(s.c_str());
 			uart.flush();
 		}
 	}
