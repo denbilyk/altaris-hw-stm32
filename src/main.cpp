@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include "diag/Trace.h"
 #include "stm32f10x.h"
-#include "uart.h"
-#include "WString.h"
+#include "uart/uart.h"
+#include "utils/WString.h"
+#include "utils/delay.h"
+#include "pins.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -12,25 +14,16 @@
 
 UART uart;
 
-void init_IOPC13() {
-	RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
-	GPIOC->CRH |= GPIO_CRH_MODE13_1;
-	GPIOC->CRH &= ~GPIO_CRH_CNF13;
-	GPIOC->BSRR = GPIO_BSRR_BS13;
-}
-
 void toggleLed() {
-	volatile int i = 0;
-	GPIOC->BRR = GPIO_BRR_BR13;
-	for (i = 0; i < 1000000; i++) {
-	}
-	GPIOC->BSRR = GPIO_BSRR_BS13;
-	for (i = 0; i < 1000000; i++) {
-	}
+	digitalWrite(&LED_C13, HIGH);
+	delay_ms(1000);
+	digitalWrite(&LED_C13, LOW);
+	delay_ms(1000);
 }
 
 int main() {
-	init_IOPC13();
+	pinMode(&LED_C13, GPIO_Mode_Out_PP, GPIO_Speed_2MHz);
+	delay_init();
 	uart.begin(19200);
 	uart.println("Test UART");
 
