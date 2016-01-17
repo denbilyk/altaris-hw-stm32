@@ -51,15 +51,49 @@
 
 #define RX_BUFF_SIZE 255
 
+typedef struct {
+	uint8_t port_no;
+	USART_TypeDef* uart_port;
+	uint16_t tx_pin;
+	uint16_t rx_pin;
+	GPIO_TypeDef* uart_gpio_port_tx;
+	GPIO_TypeDef* uart_gpio_port_rx;
+	uint16_t irq;
+
+} uart_cfg;
+
 class UART: public Print {
+protected:
+	void write_char(char, uart_cfg cfg);
+	void begin(uint32_t baudrate, uart_cfg cfg);
+public:
+
+};
+
+class UART1: public UART {
 protected:
 	size_t write_to_uart(uint8_t buff);
 	void write_char(char);
 
 public:
-	void begin(uint32_t baudrate);
+	void begin(uint32_t);
 	const char * readString();
 	bool available();
 	void flush();
+	UART1();
 };
+
+class UART2: public UART {
+protected:
+	size_t write_to_uart(uint8_t buff);
+	void write_char(char);
+
+public:
+	void begin(uint32_t);
+	const char * readString();
+	bool available();
+	void flush();
+	UART2();
+};
+
 #endif /* UART_H_ */
