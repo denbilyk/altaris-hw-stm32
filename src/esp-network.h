@@ -21,38 +21,40 @@ const String ESP_CIPMUX_1 = ESP_AT + "+CIPMUX=1";
 
 const String ESP_CIPSEND = ESP_AT + "+CIPSEND=0,{0}";
 
-const String CMD_TCP_HOST = "AT+CIPSTART=0,\"TCP\",\"{0}\",{1}";
+#define CMD_TCP_HOST_1 "AT+CIPSTART=0,\"TCP\",\""
+#define CMD_TCP_HOST_2 "\","
 const String GET_REQUEST = "GET /api/submit?auth={0}&id={1}&temp={2}&humid={3}\r\n\r\n";
-const String GET_RAW_REQUEST = "GET /api/submit?auth={0}&raw={1}\r\n\r\n";
+#define GET_RAW_REQUEST_1 "GET /api/raw?auth="
+#define GET_RAW_REQUEST_2 "&raw="
 
 class ESP {
 
 private:
-    bool cmd(String cmd, uint16_t delay);
+	bool cmd(String cmd, uint16_t delay);
 
-    bool r_check(uint8_t counter);
+	bool r_check(uint8_t counter);
 
 public:
 
-    bool esp_init(String, String);
+	bool esp_init(String, String);
 
-    bool esp_check() ;
+	bool esp_check();
 
-    bool send_AT();
+	bool send_AT();
 
-    bool send_RST();
+	bool send_RST();
 
-    bool send_CWMODE();
+	bool send_CWMODE();
 
-    bool send_CWJAP(String ssid, String pass);
+	bool send_CWJAP(String ssid, String pass);
 
-    String send_CIPSTA();
+	String send_CIPSTA();
 
-    bool send_CIPMUX(uint8_t value);
+	bool send_CIPMUX(uint8_t value);
 
-    bool send_data(String host, String port, String auth, String id, String temp, String humid);
+	bool send_data(String host, String port, String auth, String id, String temp, String humid);
 
-    bool send_data(String host, String port, String auth, String raw);
+	bool send_data(String host, String port, String auth, String raw);
 
 };
 

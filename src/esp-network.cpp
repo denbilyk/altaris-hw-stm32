@@ -92,13 +92,15 @@ bool ESP::esp_init(String ssid, String ssid_pass) {
 	return true;
 }
 
-bool connect_to_host(String host, String port) {
+bool connect_to_host(const char* host, const char* port) {
 	uint8_t counter = 10;
 	bool is_connected = false;
+	char tcp_host[39];
 	do {
-		String tcp_host = String(CMD_TCP_HOST);
-		tcp_host.replace("{0}", host);
-		tcp_host.replace("{1}", port);
+		strcpy(tcp_host, CMD_TCP_HOST_1);
+		strcat(tcp_host, host);
+		strcat(tcp_host, CMD_TCP_HOST_2);
+		strcat(tcp_host, port);
 		esp_port.println(tcp_host);
 		delay_ms(300);
 		const char *resp = esp_port.readString();
@@ -119,7 +121,7 @@ bool connect_to_host(String host, String port) {
 
 bool sendTcp(String host, String port, String tcp_packet) {
 	bool res = false;
-	if (connect_to_host(host, port)) {
+	if (connect_to_host(host.c_str(), port.c_str())) {
 		trace_printf("Tcp paket - %s\n", tcp_packet.c_str());
 
 		String cmd_send = String(ESP_CIPSEND);
@@ -151,9 +153,13 @@ bool ESP::send_data(String host, String port, String auth, String id, String tem
 }
 
 bool ESP::send_data(String host, String port, String auth, String raw) {
-	String packet = String(GET_RAW_REQUEST);
-	packet.replace("{0}", auth);
-	packet.replace("{1}", raw);
+	//String packet = String(GET_RAW_REQUEST);
+	char packet[30 + raw.length()];
+	strcpy(packet, GET_RAW_REQUEST_1);
+	strcat(packet, auth.c_str());
+	strcat(packet, GET_RAW_REQUEST_2);
+	strcat(packet, raw.c_str());
+	strcat(packet,"\r\n");
 	return sendTcp(host, port, packet);
 }
 

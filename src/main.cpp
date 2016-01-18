@@ -12,6 +12,7 @@
 #include "esp-network.h"
 #include "utils/flash.h"
 
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wmissing-declarations"
@@ -29,6 +30,7 @@ UART2 uart;
 RF24 rf24(&NRF_CE, &NRF_CSN, &NRF_SPI_MISO, &NRF_SPI_MOSI, &NRF_SPI_SCK);
 uint16_t received_data[6];
 ESP esp;
+volatile uint8_t PrevXferComplete = 1;
 
 String host = "";
 String port = "";
@@ -58,11 +60,11 @@ int main() {
 	ssid = readFromFlash(SSID_BASE_ADDR, 32); //"infinity";
 	ssid_pass = readFromFlash(SSID_PASS_BASE_ADDR, 32); //0672086028
 
-	trace_printf("Auth: %s", auth.c_str());
-	trace_printf("Ssid: %s", ssid.c_str());
-	trace_printf("Ssid Pass: %s", ssid_pass.c_str());
-	trace_printf("Host: %s", host.c_str());
-	trace_printf("Port: %s", port.c_str());
+	trace_printf("Auth: %s\n", auth.c_str());
+	trace_printf("Ssid: %s\n", ssid.c_str());
+	trace_printf("Ssid Pass: %s\n", ssid_pass.c_str());
+	trace_printf("Host: %s\n", host.c_str());
+	trace_printf("Port: %s\n", port.c_str());
 
 	pinMode(&LED_C13, GPIO_Mode_Out_PP, GPIO_Speed_2MHz);
 	delay_init();
@@ -85,8 +87,8 @@ int main() {
 	rf24.startListening();
 	rf24.printDetails();
 
-	if (!esp.esp_check())
-		esp.esp_init(ssid, ssid_pass);
+	//if (!esp.esp_check())
+	esp.esp_init(ssid, ssid_pass);
 
 	while (1) {
 		/*
@@ -122,10 +124,6 @@ int main() {
 				raw.concat(received_data[i]);
 				raw.concat(";");
 			}
-			raw = raw.substring(raw.length() - 1);
-
-			//esp.send_data(host, port, auth, String(received_data[0]), String(received_data[1]),
-			//		String(received_data[2]));
 
 			esp.send_data(host, port, auth, raw);
 		}
