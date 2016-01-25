@@ -5,8 +5,8 @@
  *      Author: denis.bilyk
  */
 
-#ifndef UTILS_FLASH_H_
-#define UTILS_FLASH_H_
+#ifndef __FLASH_H_
+#define __FLASH_H_
 
 #include "stm32f10x.h"
 #include "WString.h"
@@ -29,6 +29,12 @@
 #define HOST_BASE_ADDR (SSID_PASS_BASE_ADDR + PAGE * 2)
 #define PORT_BASE_ADDR (HOST_BASE_ADDR + PAGE)
 
+#define AUTH_LEN	32
+#define HOST_LEN	16
+#define PORT_LEN	8
+#define SSID_LEN	32
+#define SSID_PASS_LEN	32
+
 void writeAuthKeyToFlash(String auth_key);  //32 byte
 
 void writeSsidToFlash(String ssid);			//32 byte
@@ -37,7 +43,7 @@ void writeSsidPassToFlash(String pass);		//32 byte
 void writeHostToFlash(String host);			//32 byte
 void writePortToFlash(String port);		// 2 byte
 
-String readFromFlash(uint32_t addr, uint8_t size);
+const char* readFromFlash(uint32_t addr, uint8_t size);
 
 void erasePage();
 

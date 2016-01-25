@@ -35,7 +35,7 @@ void programBlock(uint32_t* buff, uint8_t size, uint32_t startAddr) {
 
 /************************************************************************************/
 
-String convertToString(uint32_t* buff, uint8_t size) {
+const char* convertToString(uint32_t* buff, uint8_t size) {
 	String s = "";
 	for (int8_t i = 0; i < size / 4; i++) {
 		s.concat((char) (buff[i] >> 24 & 0xFF));
@@ -43,7 +43,7 @@ String convertToString(uint32_t* buff, uint8_t size) {
 		s.concat((char) (buff[i] >> 8 & 0xFF));
 		s.concat((char) (buff[i] & 0xFF));
 	}
-	return s;
+	return s.c_str();
 }
 
 /************************************************************************************/
@@ -166,7 +166,6 @@ void writeSsidToFlash(String ssid) {
 	uint32_t port[4];
 	readRaw(port, 4, PORT_BASE_ADDR);
 
-
 	uint32_t *ssid32 = convertToUint32(buff);
 
 	FLASH_Unlock();
@@ -214,7 +213,7 @@ void writeSsidPassToFlash(String pass) {
 
 /************************************************************************************/
 
-String readFromFlash(uint32_t addr, uint8_t size) {
+const char* readFromFlash(uint32_t addr, uint8_t size) {
 	uint32_t buff32[size / 4];
 	readRaw(buff32, size, addr);
 	return convertToString(buff32, size);

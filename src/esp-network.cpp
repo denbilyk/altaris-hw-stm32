@@ -38,7 +38,7 @@ bool ESP::send_CIPMUX(uint8_t value) {
 	return value == 0 ? cmd(ESP_CIPMUX_0, 300) : cmd(ESP_CIPMUX_1, 300);
 }
 
-bool ESP::r_check(uint8_t counter) {
+bool ESP::r_check() {
 	String s = send_CIPSTA();
 	trace_printf("Response: %s", s.c_str());
 	return s.indexOf("+CIPSTA:") == -1 ? false : true;
@@ -48,12 +48,28 @@ bool ESP::esp_check() {
 	uint8_t counter = 5;
 	bool res = false;
 	do {
-		res = ESP::r_check(counter);
+		res = ESP::r_check();
 		counter--;
 		if (res)
 			break;
 	} while (counter != 0);
 	return res;
+}
+
+bool ESP::setMuxMode() {
+	if (!send_CIPMUX(0)) {
+		trace_puts("CIPMUX=0 = Failed");
+		return false;
+	}
+	if (!send_CWMODE()) {
+		trace_puts("CWMODE - Last Failed");
+		return false;
+	}
+	if (!send_CIPMUX(1)) {
+		trace_puts("CIPMUX=1 = Failed");
+		return false;
+	}
+	return true;
 }
 
 bool ESP::esp_init(String ssid, String ssid_pass) {
@@ -76,46 +92,31 @@ bool ESP::esp_init(String ssid, String ssid_pass) {
 	}
 	const char* s = send_CIPSTA().c_str();
 	trace_puts(s);
-	if (!send_CIPMUX(0)) {
-		trace_puts("CIPMUX=0 = Failed");
+	bool isMux = setMuxMode();
+	if (!isMux)
 		return false;
-	}
-	if (!send_CWMODE()) {
-		trace_puts("CWMODE - Last Failed");
-		return false;
-	}
-	if (!send_CIPMUX(1)) {
-		trace_puts("CIPMUX=1 = Failed");
-		return false;
-	}
 	trace_puts("ESP init complete");
 	return true;
 }
 
 bool connect_to_host(const char* host, const char* port) {
-	uint8_t counter = 10;
 	bool is_connected = false;
 	char tcp_host[39];
-	do {
-		strcpy(tcp_host, CMD_TCP_HOST_1);
-		strcat(tcp_host, host);
-		strcat(tcp_host, CMD_TCP_HOST_2);
-		strcat(tcp_host, port);
-		esp_port.println(tcp_host);
-		delay_ms(300);
-		const char *resp = esp_port.readString();
-		if (strstr(resp, "CONNECT") != 0) {
-			trace_puts("Connected!\n");
-			is_connected = true;
-			esp_port.flush();
-			break;
-		} else {
-			trace_printf("Err Res - %s\n", resp);
-		}
-		delay_ms(1000);
-		counter--;
-	} while (counter > 0);
-
+	strcpy(tcp_host, CMD_TCP_HOST_1);
+	strcat(tcp_host, host);
+	strcat(tcp_host, CMD_TCP_HOST_2);
+	strcat(tcp_host, port);
+	esp_port.println(tcp_host);
+	delay_ms(300);
+	const char *resp = esp_port.readString();
+	if (strstr(resp, "CONNECT") != 0) {
+		trace_puts("Connected!\n");
+		is_connected = true;
+		esp_port.flush();
+	} else {
+		trace_printf("Err Res - %s\n", resp);
+		//delay_ms(1000);
+	}
 	return is_connected;
 }
 
@@ -159,7 +160,7 @@ bool ESP::send_data(String host, String port, String auth, String raw) {
 	strcat(packet, auth.c_str());
 	strcat(packet, GET_RAW_REQUEST_2);
 	strcat(packet, raw.c_str());
-	strcat(packet,"\r\n");
+	strcat(packet, "\r\n");
 	return sendTcp(host, port, packet);
 }
 

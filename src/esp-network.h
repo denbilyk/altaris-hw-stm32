@@ -32,7 +32,7 @@ class ESP {
 private:
 	bool cmd(String cmd, uint16_t delay);
 
-	bool r_check(uint8_t counter);
+	bool r_check();
 
 public:
 
@@ -51,6 +51,8 @@ public:
 	String send_CIPSTA();
 
 	bool send_CIPMUX(uint8_t value);
+
+	bool setMuxMode();
 
 	bool send_data(String host, String port, String auth, String id, String temp, String humid);
 
