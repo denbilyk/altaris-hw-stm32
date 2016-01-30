@@ -15,9 +15,11 @@
 #define CMD_WRITE_PORT (0x2C)
 #define CMD_WRITE_SSID (0x2D)
 #define CMD_WRITE_SSID_PASS (0x2E)
+#define CMD_STORE_CONFIG (0x31)
+#define CMD_INIT_BUFFERS (0x32)
 
 
-void check_data_request(const char* auth, const char* host, const char* port, const char* ssid, const char* ssid_pass);
-void check_auth_write_command();
+void check_data_request();
+void check_usb_command();
 
 #endif

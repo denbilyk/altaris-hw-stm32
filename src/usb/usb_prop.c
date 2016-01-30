@@ -195,7 +195,7 @@ void HID_Status_In(void) {
 		Buffer[4] = report_buf[1];
 		break;
 	case 2:
-		if (report_buf[1] == CMD_ERASE || CMD_WRITE_AUTH || CMD_WRITE_HOST || CMD_WRITE_PORT || CMD_WRITE_SSID || CMD_WRITE_SSID_PASS)
+		if (report_buf[1] == CMD_ERASE || CMD_WRITE_AUTH || CMD_WRITE_HOST || CMD_WRITE_PORT || CMD_WRITE_SSID || CMD_WRITE_SSID_PASS || CMD_STORE_CONFIG || CMD_INIT_BUFFERS)
 			requestCommand = report_buf[1];
 		break;
 	case 3:

@@ -1,15 +1,14 @@
 /*
- * flash.h
+ * flashv2.h
  *
- *  Created on: Jan 17, 2016
+ *  Created on: Jan 28, 2016
  *      Author: denis.bilyk
  */
 
-#ifndef __FLASH_H_
-#define __FLASH_H_
+#ifndef UTILS_FLASHV2_H_
+#define UTILS_FLASHV2_H_
 
 #include "stm32f10x.h"
-#include "WString.h"
 
 
 #define CELL 0x04
@@ -28,16 +27,9 @@
 #define SSID_LEN	32
 #define SSID_PASS_LEN	32
 
-void writeAuthKeyToFlash(String auth_key);  //32 byte
 
-void writeSsidToFlash(String ssid);			//32 byte
-void writeSsidPassToFlash(String pass);		//32 byte
+void fillCharBuffer(char* ptr, uint32_t startAddres, uint8_t len);
+void erasePagev2();
 
-void writeHostToFlash(String host);			//32 byte
-void writePortToFlash(String port);		// 2 byte
 
-const char* readFromFlash(uint32_t addr, uint8_t size);
-
-void erasePage();
-
-#endif /* UTILS_FLASH_H_ */
+#endif /* UTILS_FLASHV2_H_ */

@@ -10,7 +10,7 @@
 #include "pins.h"
 #include "rf24/rf24.h"
 #include "esp-network.h"
-#include "utils/flash.h"
+#include "utils/flashv2.h"
 
 /********************* USB ***********************/
 extern "C" {
@@ -27,16 +27,15 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wreturn-type"
 
 UART1 esp_port;
-UART2 uart;
 RF24 rf24(&NRF_CE, &NRF_CSN, &NRF_SPI_MISO, &NRF_SPI_MOSI, &NRF_SPI_SCK);
 uint16_t received_data[6];
 ESP esp;
 
-String host = "";
-String port = "";
-String ssid = "";
-String ssid_pass = "";
-String auth = "";
+static char auth[AUTH_LEN];
+static char host[HOST_LEN];
+static char port[PORT_LEN];
+static char ssid[SSID_LEN];
+static char ssid_pass[SSID_PASS_LEN];
 
 #define RESEND_TRIES 3
 
@@ -71,9 +70,9 @@ void init_rf24() {
 
 void toggleLed() {
 	digitalWrite(&LED_C13, HIGH);
-	delay_ms(1000);
+	delay_ms(200);
 	digitalWrite(&LED_C13, LOW);
-	delay_ms(1000);
+	delay_ms(200);
 }
 
 int main() {
@@ -85,26 +84,29 @@ int main() {
 	//writeHostToFlash("10.10.0.171");
 	//writePortToFlash("8080");
 
-	auth = readFromFlash(AUTH_BASE_ADDR, AUTH_LEN); //AJKSJDKALS
-	host = readFromFlash(HOST_BASE_ADDR, HOST_LEN); //"10.10.0.171";
-	port = readFromFlash(PORT_BASE_ADDR, PORT_LEN); //8080
-	ssid = readFromFlash(SSID_BASE_ADDR, SSID_LEN); //"infinity";
-	ssid_pass = readFromFlash(SSID_PASS_BASE_ADDR, SSID_PASS_LEN); //0672086028
+	char* ptr;
+	ptr = auth;
+	fillCharBuffer(ptr, AUTH_BASE_ADDR, AUTH_LEN);
+	ptr = host;
+	fillCharBuffer(ptr, HOST_BASE_ADDR, HOST_LEN);
+	ptr = port;
+	fillCharBuffer(ptr, PORT_BASE_ADDR, PORT_LEN);
+	ptr = ssid;
+	fillCharBuffer(ptr, SSID_BASE_ADDR, SSID_LEN);
+	ptr = ssid_pass;
+	fillCharBuffer(ptr, SSID_PASS_BASE_ADDR, SSID_PASS_LEN);
 
-	trace_printf("Auth: %s\n", auth.c_str());
-	trace_printf("Ssid: %s\n", ssid.c_str());
-	trace_printf("Ssid Pass: %s\n", ssid_pass.c_str());
-	trace_printf("Host: %s\n", host.c_str());
-	trace_printf("Port: %s\n", port.c_str());
+	trace_printf("Auth: %s\n", auth);
+	trace_printf("Host: %s\n", host);
+	trace_printf("Port: %s\n", port);
+	trace_printf("Ssid: %s\n", ssid);
+	trace_printf("Ssid Pass: %s\n", ssid_pass);
 
 	pinMode(&LED_C13, GPIO_Mode_Out_PP, GPIO_Speed_2MHz);
 	delay_init();
 	esp_port.begin(115200);
-	uart.begin(115200);
-	uart.println("Test UART");
 
 	init_usb();
-
 	init_rf24();
 
 	if (!esp.esp_check())
@@ -119,8 +121,8 @@ int main() {
 			trace_printf("USB Changed state to %s \r\n", get_usb_state_name(bDeviceState));
 		}
 
-		check_data_request(auth.c_str(), host.c_str(), port.c_str(), ssid.c_str(), ssid_pass.c_str());
-		check_auth_write_command();
+		check_data_request();
+		check_usb_command();
 
 		/*
 		 if (uart.available()) {
@@ -133,12 +135,6 @@ int main() {
 		 }
 		 */
 		//toggleLed();
-		if (uart.available()) {
-			String s = String(uart.readString());
-			trace_printf("ReadString: %s", s.c_str());
-			uart.println(s.c_str());
-			uart.flush();
-		}
 		if (rf24.available()) {
 			bool done = false;
 			raw_data = "";
@@ -148,7 +144,7 @@ int main() {
 			}
 			trace_puts("> ");
 			for (uint8_t i = 0; i < 6; i++) {
-				trace_printf("received_data[%u] = %d \r\n", i, received_data[i]);
+				trace_printf("RF21-1: received_data[%u] = %d \r\n", i, received_data[i]);
 			}
 
 			for (uint8_t i = 0; i < sizeof(received_data) / sizeof(uint16_t); i++) {
@@ -163,6 +159,7 @@ int main() {
 				send_tries++;
 			} else {
 				send_tries = -1;
+				toggleLed();
 			}
 		}
 

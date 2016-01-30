@@ -23,7 +23,6 @@ const String ESP_CIPSEND = ESP_AT + "+CIPSEND=0,{0}";
 
 #define CMD_TCP_HOST_1 "AT+CIPSTART=0,\"TCP\",\""
 #define CMD_TCP_HOST_2 "\","
-const String GET_REQUEST = "GET /api/submit?auth={0}&id={1}&temp={2}&humid={3}\r\n\r\n";
 #define GET_RAW_REQUEST_1 "GET /api/raw?auth="
 #define GET_RAW_REQUEST_2 "&raw="
 
@@ -53,8 +52,6 @@ public:
 	bool send_CIPMUX(uint8_t value);
 
 	bool setMuxMode();
-
-	bool send_data(String host, String port, String auth, String id, String temp, String humid);
 
 	bool send_data(String host, String port, String auth, String raw);
 

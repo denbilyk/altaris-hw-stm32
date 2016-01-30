@@ -144,23 +144,12 @@ bool sendTcp(String host, String port, String tcp_packet) {
 	return res;
 }
 
-bool ESP::send_data(String host, String port, String auth, String id, String temp, String humid) {
-	String packet = String(GET_REQUEST);
-	packet.replace("{0}", auth);
-	packet.replace("{1}", id);
-	packet.replace("{2}", temp);
-	packet.replace("{3}", humid);
-	return sendTcp(host, port, packet);
-}
-
 bool ESP::send_data(String host, String port, String auth, String raw) {
-	//String packet = String(GET_RAW_REQUEST);
-	char packet[30 + raw.length()];
-	strcpy(packet, GET_RAW_REQUEST_1);
-	strcat(packet, auth.c_str());
-	strcat(packet, GET_RAW_REQUEST_2);
-	strcat(packet, raw.c_str());
-	strcat(packet, "\r\n");
+	String packet = String(GET_RAW_REQUEST_1);
+	packet.concat(auth);
+	packet.concat(GET_RAW_REQUEST_2);
+	packet.concat(raw);
+	packet.concat("\r\n");
 	return sendTcp(host, port, packet);
 }
 

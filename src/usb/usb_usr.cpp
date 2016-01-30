@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "stm32f10x.h"
-#include "../utils/flash.h"
+#include "../utils/flashv2.h"
 #include "diag/Trace.h"
 
 extern "C" {
@@ -24,6 +24,12 @@ extern uint8_t requestCommand;
 extern uint8_t report_buf[wMaxPacketSize];
 __IO uint8_t PrevXferComplete = 1;
 
+static uint32_t flash_buffer_auth[AUTH_LEN / 4];
+static uint32_t flash_buffer_host[HOST_LEN / 4];
+static uint32_t flash_buffer_port[PORT_LEN / 4];
+static uint32_t flash_buffer_ssid[SSID_LEN / 4];
+static uint32_t flash_buffer_ssid_pass[SSID_PASS_LEN / 4];
+
 void send_process() {
 	if (bDeviceState == CONFIGURED && PrevXferComplete) {
 		SendDataForRequest();
@@ -31,99 +37,168 @@ void send_process() {
 	}
 }
 
-void prepareBufferWithAuth(const char* auth) {
-	uint8_t* ptr;
-	ptr = Buffer;
-	memset(ptr, 0, 64);
-	*ptr++ = 4;
-	*ptr++ = CMD_READ_AUTH;
-	memcpy(ptr, auth, strlen(auth));
-	ptr += 32;
-	*ptr++ = 255;
+void fillBuffer(uint8_t* ptr_Buffer, uint32_t startBase, uint8_t len) {
+	for (int8_t i = 0; i < len / 4; i++) {
+		*ptr_Buffer++ = ((*(uint32_t*) (startBase + CELL * i)) >> 24 & 0xFF);
+		*ptr_Buffer++ = ((*(uint32_t*) (startBase + CELL * i)) >> 16 & 0xFF);
+		*ptr_Buffer++ = ((*(uint32_t*) (startBase + CELL * i)) >> 8 & 0xFF);
+		*ptr_Buffer++ = ((*(uint32_t*) (startBase + CELL * i)) & 0xFF);
+	}
 }
 
-void prepareBufferWithHost(const char* host, const char* port) {
-	uint8_t* ptr;
-	ptr = Buffer;
-	memset(ptr, 0, 64);
-	*ptr++ = 4;
-	*ptr++ = CMD_READ_HOST;
-	memcpy(ptr, host, strlen(host));
-	ptr += 16;
-	*ptr++ = 254;
-	memcpy(ptr, port, strlen(port));
-	ptr += 8;
-	*ptr++ = 255;
-}
-
-void prepareBufferWithSsid(const char* ssid) {
-	uint8_t* ptr;
-	ptr = Buffer;
-	memset(ptr, 0, 64);
-	*ptr++ = 4;
-	*ptr++ = CMD_READ_SSID;
-	memcpy(ptr, ssid, strlen(ssid));
-	ptr += 32;
-	*ptr++ = 255;
-}
-
-void prepareBufferWithSsidPass(const char* ssid_pass) {
-	uint8_t* ptr;
-	ptr = Buffer;
-	memset(ptr, 0, 64);
-	*ptr++ = 4;
-	*ptr++ = CMD_READ_SSID_PASS;
-	memcpy(ptr, ssid_pass, strlen(ssid_pass));
-	ptr += 32;
-	*ptr++ = 255;
-}
-
-void check_data_request(const char* auth, const char* host, const char* port, const char* ssid, const char* ssid_pass) {
+void check_data_request() {
+	uint8_t* ptr_Buffer;
 
 	switch (requestCommand) {
 
 	case CMD_READ_AUTH:
-		prepareBufferWithAuth(auth);
+		ptr_Buffer = Buffer;
+		memset(ptr_Buffer, 0, RPT4_COUNT + 1);
+		*ptr_Buffer++ = 4;
+		*ptr_Buffer++ = CMD_READ_AUTH;
+		fillBuffer(ptr_Buffer, AUTH_BASE_ADDR, AUTH_LEN);
+		ptr_Buffer += AUTH_LEN;
+		*ptr_Buffer++ = 255;
 		send_process();
 		break;
 
 	case CMD_READ_HOST:
-		prepareBufferWithHost(host, port);
+		ptr_Buffer = Buffer;
+		memset(ptr_Buffer, 0, RPT4_COUNT + 1);
+		*ptr_Buffer++ = 4;
+		*ptr_Buffer++ = CMD_READ_HOST;
+		fillBuffer(ptr_Buffer, HOST_BASE_ADDR, HOST_LEN);
+		ptr_Buffer += HOST_LEN;
+		*ptr_Buffer++ = 254;
+		fillBuffer(ptr_Buffer, PORT_BASE_ADDR, PORT_LEN);
+		ptr_Buffer += PORT_LEN;
+		*ptr_Buffer++ = 255;
 		send_process();
 		break;
 
 	case CMD_READ_SSID:
-		prepareBufferWithSsid(ssid);
+		ptr_Buffer = Buffer;
+		memset(ptr_Buffer, 0, RPT4_COUNT + 1);
+		*ptr_Buffer++ = 4;
+		*ptr_Buffer++ = CMD_READ_SSID;
+		fillBuffer(ptr_Buffer, SSID_BASE_ADDR, SSID_LEN);
+		ptr_Buffer += SSID_LEN;
+		*ptr_Buffer++ = 255;
 		send_process();
 		break;
 
 	case CMD_READ_SSID_PASS:
-		prepareBufferWithSsidPass(ssid_pass);
+		ptr_Buffer = Buffer;
+		memset(ptr_Buffer, 0, RPT4_COUNT + 1);
+		*ptr_Buffer++ = 4;
+		*ptr_Buffer++ = CMD_READ_SSID_PASS;
+		fillBuffer(ptr_Buffer, SSID_PASS_BASE_ADDR, SSID_PASS_LEN);
+		ptr_Buffer += SSID_PASS_LEN;
+		*ptr_Buffer++ = 255;
 		send_process();
 		break;
 
 	}
 }
 
-void check_auth_write_command() {
-	if(requestCommand == CMD_ERASE) {
-		erasePage();
-		trace_printf("Erase command\r\n");
-		requestCommand = 0;
-	}
+void check_usb_command() {
+	uint8_t* ptr;
+	switch (requestCommand) {
 
-	if (requestCommand == CMD_WRITE_AUTH) {
-		uint8_t b[32];
-		memset(&b, 0, 32);
-		uint8_t* ptr;
+	case CMD_ERASE:
+		erasePagev2();
+		requestCommand = 0;
+		break;
+
+	case CMD_INIT_BUFFERS:
+		memset(&flash_buffer_auth, 0, AUTH_LEN / 4);
+		memset(&flash_buffer_host, 0, HOST_LEN / 4);
+		memset(&flash_buffer_port, 0, PORT_LEN / 4);
+		memset(&flash_buffer_ssid, 0, SSID_LEN / 4);
+		memset(&flash_buffer_ssid_pass, 0, SSID_PASS_LEN / 4);
+		requestCommand = 0;
+		break;
+
+	case CMD_WRITE_AUTH:
 		ptr = report_buf;
 		ptr += 2;
-		memcpy(&b, ptr, 32);
-		const char *p = reinterpret_cast<const char*>(b);
-		trace_printf("New auth: %s \r\n", p);
-		writeAuthKeyToFlash(p);
+		for (int8_t i = 0; i < AUTH_LEN / 4; i++) {
+			flash_buffer_auth[i] = *ptr++ << 24 | *ptr++ << 16 | *ptr++ << 8 | *ptr++;
+		}
 		requestCommand = 0;
-	}
+		break;
 
+	case CMD_WRITE_HOST:
+		ptr = report_buf;
+		ptr += 2;
+		for (int8_t i = 0; i < HOST_LEN / 4; i++) {
+			flash_buffer_host[i] = *ptr++ << 24 | *ptr++ << 16 | *ptr++ << 8 | *ptr++;
+		}
+		requestCommand = 0;
+		break;
+
+	case CMD_WRITE_PORT:
+		ptr = report_buf;
+		ptr += 2;
+		for (int8_t i = 0; i < PORT_LEN / 4; i++) {
+			flash_buffer_port[i] = *ptr++ << 24 | *ptr++ << 16 | *ptr++ << 8 | *ptr++;
+		}
+		requestCommand = 0;
+		break;
+
+	case CMD_WRITE_SSID:
+		ptr = report_buf;
+		ptr += 2;
+		for (int8_t i = 0; i < SSID_LEN / 4; i++) {
+			flash_buffer_ssid[i] = *ptr++ << 24 | *ptr++ << 16 | *ptr++ << 8 | *ptr++;
+		}
+		requestCommand = 0;
+		break;
+
+	case CMD_WRITE_SSID_PASS:
+		ptr = report_buf;
+		ptr += 2;
+		for (int8_t i = 0; i < SSID_PASS_LEN / 4; i++) {
+			flash_buffer_ssid_pass[i] = *ptr++ << 24 | *ptr++ << 16 | *ptr++ << 8 | *ptr++;
+		}
+		requestCommand = 0;
+		break;
+
+	case CMD_STORE_CONFIG:
+		uint32_t* flash_buff_ptr;
+		FLASH_Unlock();
+		FLASH_ClearFlag(FLASH_FLAG_EOP | FLASH_FLAG_PGERR | FLASH_FLAG_WRPRTERR);
+		FLASH_ErasePage(START_ADDRESS);
+
+		flash_buff_ptr = flash_buffer_auth;
+		for (int8_t i = 0; i < AUTH_LEN / 4; i++) {
+			FLASH_ProgramWord(AUTH_BASE_ADDR + CELL * i, flash_buffer_auth[i]);
+		}
+
+		flash_buff_ptr = flash_buffer_host;
+		for (int8_t i = 0; i < HOST_LEN / 4; i++) {
+			FLASH_ProgramWord(HOST_BASE_ADDR + CELL * i, flash_buffer_host[i]);
+		}
+
+		flash_buff_ptr = flash_buffer_port;
+		for (int8_t i = 0; i < PORT_LEN / 4; i++) {
+			FLASH_ProgramWord(PORT_BASE_ADDR + CELL * i, flash_buffer_port[i]);
+		}
+
+		flash_buff_ptr = flash_buffer_ssid;
+		for (int8_t i = 0; i < SSID_LEN / 4; i++) {
+			FLASH_ProgramWord(SSID_BASE_ADDR + CELL * i, flash_buffer_ssid[i]);
+		}
+
+		flash_buff_ptr = flash_buffer_ssid_pass;
+		for (int8_t i = 0; i < SSID_PASS_LEN / 4; i++) {
+			FLASH_ProgramWord(SSID_PASS_BASE_ADDR + CELL * i, flash_buffer_ssid_pass[i]);
+		}
+
+		FLASH_Lock();
+
+		requestCommand = 0;
+		break;
+	}
 }
 
