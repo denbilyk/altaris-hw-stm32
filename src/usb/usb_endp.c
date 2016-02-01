@@ -26,6 +26,9 @@
  */
 
 /* Includes ------------------------------------------------------------------*/
+#ifdef TRACE
+#include "diag/Trace.h"
+#endif
 #include "hw_config.h"
 #include "usb_desc.h"
 #include "usb_lib.h"

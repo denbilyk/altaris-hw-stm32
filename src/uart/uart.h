@@ -9,6 +9,7 @@
 #define UART_H_
 
 #include "print.h"
+#include "stm32f10x.h"
 
 #define _UART_PORT 1
 

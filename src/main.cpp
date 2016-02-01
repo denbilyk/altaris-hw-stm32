@@ -9,8 +9,9 @@
 #include "utils/delay.h"
 #include "pins.h"
 #include "rf24/rf24.h"
-#include "esp-network.h"
+#include "esp.h"
 #include "utils/flashv2.h"
+#include "exti.h"
 
 /********************* USB ***********************/
 extern "C" {
@@ -26,18 +27,16 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wmissing-declarations"
 #pragma GCC diagnostic ignored "-Wreturn-type"
 
+#define RX_PAYLOAD 6
+
 UART1 esp_port;
 RF24 rf24(&NRF_CE, &NRF_CSN, &NRF_SPI_MISO, &NRF_SPI_MOSI, &NRF_SPI_SCK);
-uint16_t received_data[6];
-ESP esp;
-
-static char auth[AUTH_LEN];
-static char host[HOST_LEN];
-static char port[PORT_LEN];
-static char ssid[SSID_LEN];
-static char ssid_pass[SSID_PASS_LEN];
-
-#define RESEND_TRIES 3
+extern uint16_t received_data[RX_PAYLOAD];
+static char raw[RX_PAYLOAD * 5 + RX_PAYLOAD];
+__IO int8_t to_send = 0;
+__IO bool lastSend = false;
+extern uint8_t have_data;
+uint32_t usbLastState;
 
 /* Private variables ---------------------------------------------------------*/
 __IO uint8_t send_tries = -1;
@@ -48,10 +47,11 @@ void init_usb() {
 	USB_Interrupts_Config();
 	Set_USBClock();
 	USB_Init();
-	trace_printf("USB startup.");
+	trace_printf("USB startup. \n");
 }
 
 void init_rf24() {
+	have_data = 0;
 	rf24.begin();
 	rf24.setRetries(15, 15);
 	rf24.setAutoAck(true);
@@ -66,6 +66,7 @@ void init_rf24() {
 	rf24.openReadingPipe(5, RX_ADDR_5);
 	rf24.startListening();
 	rf24.printDetails();
+
 }
 
 void toggleLed() {
@@ -75,94 +76,106 @@ void toggleLed() {
 	delay_ms(200);
 }
 
-int main() {
+void toggleLastSend(bool status) {
+	if (status) {
+		trace_puts("ESP last send - ok \n");
+		digitalWrite(&LED_ESP_STATUS_ERR, LOW);
+		digitalWrite(&LED_ESP_STATUS_OK, HIGH);
+	} else {
+		trace_puts("ESP last send - fail \n");
+		digitalWrite(&LED_ESP_STATUS_OK, LOW);
+		digitalWrite(&LED_ESP_STATUS_ERR, HIGH);
+	}
+}
 
-	//erasePage();
-	//writeAuthKeyToFlash("AJKSJDKALS");
-	//writeSsidToFlash("infinity");
-	//writeSsidPassToFlash("0672086028");
-	//writeHostToFlash("10.10.0.171");
-	//writePortToFlash("8080");
+void toggleEspInit(bool status) {
+	if (status) {
+		trace_puts("ESP init - ok \n");
+		digitalWrite(&LED_ESP_INIT_ERR, LOW);
+		digitalWrite(&LED_ESP_INIT_OK, HIGH);
+	} else {
+		trace_puts("ESP init - fail \n");
+		digitalWrite(&LED_ESP_INIT_OK, LOW);
+		digitalWrite(&LED_ESP_INIT_ERR, HIGH);
+	}
+}
 
-	char* ptr;
-	ptr = auth;
-	fillCharBuffer(ptr, AUTH_BASE_ADDR, AUTH_LEN);
-	ptr = host;
-	fillCharBuffer(ptr, HOST_BASE_ADDR, HOST_LEN);
-	ptr = port;
-	fillCharBuffer(ptr, PORT_BASE_ADDR, PORT_LEN);
-	ptr = ssid;
-	fillCharBuffer(ptr, SSID_BASE_ADDR, SSID_LEN);
-	ptr = ssid_pass;
-	fillCharBuffer(ptr, SSID_PASS_BASE_ADDR, SSID_PASS_LEN);
-
-	trace_printf("Auth: %s\n", auth);
-	trace_printf("Host: %s\n", host);
-	trace_printf("Port: %s\n", port);
-	trace_printf("Ssid: %s\n", ssid);
-	trace_printf("Ssid Pass: %s\n", ssid_pass);
-
-	pinMode(&LED_C13, GPIO_Mode_Out_PP, GPIO_Speed_2MHz);
-	delay_init();
+void setup() {
 	esp_port.begin(115200);
+	pinMode(&LED_ESP_STATUS_OK, GPIO_Mode_Out_PP, GPIO_Speed_2MHz);
+	pinMode(&LED_ESP_STATUS_ERR, GPIO_Mode_Out_PP, GPIO_Speed_2MHz);
+	pinMode(&LED_ESP_INIT_OK, GPIO_Mode_Out_PP, GPIO_Speed_2MHz);
+	pinMode(&LED_ESP_INIT_ERR, GPIO_Mode_Out_PP, GPIO_Speed_2MHz);
+	pinMode(&LED_C13, GPIO_Mode_Out_PP, GPIO_Speed_2MHz);
 
+	exti10_init();
 	init_usb();
 	init_rf24();
 
-	if (!esp.esp_check())
-		esp.esp_init(ssid, ssid_pass);
+	bool espInit = false;
+	if (!esp_check())
+		espInit = esp_init();
 	else
-		esp.setMuxMode();
+		espInit = esp_setMuxMode();
+	toggleEspInit(espInit);
 
-	uint32_t usbLastState;
-	while (1) {
-		if (bDeviceState != usbLastState) {
-			usbLastState = bDeviceState;
-			trace_printf("USB Changed state to %s \r\n", get_usb_state_name(bDeviceState));
+}
+void loop() {
+	if (bDeviceState != usbLastState) {
+		usbLastState = bDeviceState;
+
+		trace_printf("USB Changed state to %s \r\n", get_usb_state_name(bDeviceState));
+
+	}
+	check_data_request();
+	check_usb_command();
+
+	toggleLed();
+
+	if ("CONFIGURED" != get_usb_state_name(bDeviceState)) {
+		if (have_data) {
+			char* raw_ptr = raw;
+			memset(raw_ptr, 0, RX_PAYLOAD * 5 + RX_PAYLOAD);
+			have_data = 0;
+			size_t len = 0;
+
+			trace_puts("Process data > \r\n");
+
+			for (uint8_t i = 0; i < RX_PAYLOAD; i++) {
+
+				trace_printf("RF21: received_data[%u] = %d \r\n", i, received_data[i]);
+
+				sprintf(raw_ptr, "%d", received_data[i]);
+				raw_ptr += strlen(raw) - len;
+				*raw_ptr++ = ';';
+				len = strlen(raw);
+			}
+			to_send = 3;
 		}
 
-		check_data_request();
-		check_usb_command();
-
-		/*
-		 if (uart.available()) {
-		 esp_port.print(uart.readString());
-		 uart.flush();
-		 }
-		 if (esp_port.available()) {
-		 uart.print(esp_port.readString());
-		 esp_port.flush();
-		 }
-		 */
-		//toggleLed();
-		if (rf24.available()) {
-			bool done = false;
-			raw_data = "";
-			send_tries = -1;
-			while (!done) {
-				done = rf24.read(&received_data, sizeof(received_data));
-			}
-			trace_puts("> ");
-			for (uint8_t i = 0; i < 6; i++) {
-				trace_printf("RF21-1: received_data[%u] = %d \r\n", i, received_data[i]);
-			}
-
-			for (uint8_t i = 0; i < sizeof(received_data) / sizeof(uint16_t); i++) {
-				raw_data.concat(received_data[i]);
-				raw_data.concat(";");
-			}
-			send_tries = 1;
-		}
-
-		if (send_tries > 0 && send_tries <= RESEND_TRIES) {
-			if (!esp.send_data(host, port, auth, raw_data)) {
-				send_tries++;
+		if (to_send > 0) {
+			if (esp_send_data(raw)) {
+				to_send = 0;
+				toggleLastSend(true);
 			} else {
-				send_tries = -1;
-				toggleLed();
+				to_send--;
+				toggleLastSend(false);
 			}
 		}
+	}
 
+}
+
+/*
+ *
+ */
+
+int main() {
+	delay_init();
+	setup();
+
+	while (1) {
+		loop();
 	}
 	return 0;
 }
