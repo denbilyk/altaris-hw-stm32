@@ -39,8 +39,6 @@ extern uint8_t have_data;
 uint32_t usbLastState;
 
 /* Private variables ---------------------------------------------------------*/
-__IO uint8_t send_tries = -1;
-String raw_data = "";
 
 void init_usb() {
 	Set_System();
@@ -165,10 +163,6 @@ void loop() {
 	}
 
 }
-
-/*
- *
- */
 
 int main() {
 	delay_init();

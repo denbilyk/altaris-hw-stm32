@@ -1,0 +1,27 @@
+Release: 
+
+Debbug level: none
+Optimization: -Os
+STARTUP_FROM_RESET
+STM32F10X_MD
+USE_STDPERIPH_DRIVER
+HSE_VALUE=8000000
+
+Debug:
+
+Debbug level: -g3
+Optimization: -Og
+DEBUG
+USE_FULL_ASSERT
+OS_USE_SEMIHOSTING
+TRACE
+OS_USE_TRACE_SEMIHOSTING_DEBUG
+STM32F10X_MD
+USE_STDPERIPH_DRIVER
+HSE_VALUE=8000000
+
+
+OpenOCD config:
+
+-f interface/stlink-v2.cfg
+-f target/stm32f1x.cfg
